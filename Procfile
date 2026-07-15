@@ -1,1 +1,1 @@
-      worker: python pronoplans.py
+      worker: python plan.py
