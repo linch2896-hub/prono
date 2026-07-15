@@ -129,32 +129,45 @@ def parse_user_input(text):
     return result
 
 # ================= ПОГОДА =================
-async def get_weather(city="Moscow"):
-    """Получает погоду с wttr.in"""
+async def get_weather(city="Samara"):
+    """Получает погоду через надежный Open-Meteo (без API ключа)"""
     try:
-        # Добавляем заголовок, чтобы сервис не блокировал запрос
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        # Координаты Самары
+        lat = 53.2001
+        lon = 50.1500
+        
+        url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=Europe/Samara"
         
         async with aiohttp.ClientSession() as session:
-            url = f"https://wttr.in/{city}?format=j1"
-            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as response:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
                 if response.status == 200:
                     data = await response.json()
-                    current = data['current_condition'][0]
-                    temp = current['temp_C']
                     
-                    # Пробуем получить описание на русском, если нет - на английском
-                    if 'lang_ru' in current and current['lang_ru']:
-                        desc = current['lang_ru'][0]['value']
+                    current = data['current']
+                    daily = data['daily']
+                    
+                    temp = current['temperature_2m']
+                    humidity = current['relative_humidity_2m']
+                    wind = current['wind_speed_10m']
+                    max_temp = daily['temperature_2m_max'][0]
+                    min_temp = daily['temperature_2m_min'][0]
+                    
+                    # Расшифровка кода погоды WMO на русский
+                    code = current['weather_code']
+                    if code == 0:
+                        desc = "Ясно"
+                    elif code in [1, 2, 3]:
+                        desc = "Облачно"
+                    elif code in [45, 48]:
+                        desc = "Туман"
+                    elif code in [51, 53, 55, 61, 63, 65, 80, 81, 82]:
+                        desc = "Дождь"
+                    elif code in [71, 73, 75, 77, 85, 86]:
+                        desc = "Снег"
+                    elif code in [95, 96, 99]:
+                        desc = "Гроза"
                     else:
-                        desc = current['weatherDesc'][0]['value']
-                        
-                    humidity = current['humidity']
-                    wind = current['windspeedKmph']
-                    
-                    today_forecast = data['weather'][0]
-                    max_temp = today_forecast['maxtempC']
-                    min_temp = today_forecast['mintempC']
+                        desc = "Переменная облачность"
                     
                     return {
                         'temp': temp,
@@ -165,7 +178,7 @@ async def get_weather(city="Moscow"):
                         'min_temp': min_temp
                     }
                 else:
-                    print(f"Ошибка wttr.in: статус {response.status}")
+                    print(f"Ошибка API погоды: статус {response.status}")
                     return None
     except Exception as e:
         print(f"Ошибка получения погоды: {e}")
