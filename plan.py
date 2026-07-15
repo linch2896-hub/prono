@@ -130,16 +130,25 @@ def parse_user_input(text):
 
 # ================= ПОГОДА =================
 async def get_weather(city="Moscow"):
-    """Получает погоду с wttr.in (бесплатно, без API ключа)"""
+    """Получает погоду с wttr.in"""
     try:
+        # Добавляем заголовок, чтобы сервис не блокировал запрос
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+        
         async with aiohttp.ClientSession() as session:
             url = f"https://wttr.in/{city}?format=j1"
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as response:
+            async with session.get(url, headers=headers, timeout=aiohttp.ClientTimeout(total=10)) as response:
                 if response.status == 200:
                     data = await response.json()
                     current = data['current_condition'][0]
                     temp = current['temp_C']
-                    desc = current['lang_ru'][0]['value'] if 'lang_ru' in current else current['weatherDesc'][0]['value']
+                    
+                    # Пробуем получить описание на русском, если нет - на английском
+                    if 'lang_ru' in current and current['lang_ru']:
+                        desc = current['lang_ru'][0]['value']
+                    else:
+                        desc = current['weatherDesc'][0]['value']
+                        
                     humidity = current['humidity']
                     wind = current['windspeedKmph']
                     
@@ -155,6 +164,9 @@ async def get_weather(city="Moscow"):
                         'max_temp': max_temp,
                         'min_temp': min_temp
                     }
+                else:
+                    print(f"Ошибка wttr.in: статус {response.status}")
+                    return None
     except Exception as e:
         print(f"Ошибка получения погоды: {e}")
         return None
